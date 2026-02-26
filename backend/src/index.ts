@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js'; // Note the .js extension! (ESM requirement)
+import { authenticateToken } from './middleware/authMiddleware.js';
 
 dotenv.config();
 
@@ -9,6 +10,11 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+
+// This route is protected!
+app.get('/api/user/profile', authenticateToken, (req, res) => {
+  res.json({ message: "Welcome to your private profile!", user: (req as any).user });
+});
 
 app.get('/', (req, res) => {
   res.send('Smart Study Scheduler API is Running! 🚀');
