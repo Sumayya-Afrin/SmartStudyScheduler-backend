@@ -11,7 +11,13 @@
   "scripts": {
   
     
-  "test": "echo \"Error: no test specified\" && exit 1"
+  "dev": "nodemon --exec \"node --no-warnings=ExperimentalWarning --loader ts-node/esm\" src/index.ts",
+  
+    
+  "build": "tsc",
+  
+    
+  "start": "node dist/index.js"
   
   },
   
@@ -38,6 +44,12 @@
   "@types/node": "^25.1.0",
   
     
+  "@types/pg": "^8.16.0",
+  
+    
+  "nodemon": "^3.1.14",
+  
+    
   "prisma": "^7.4.1",
   
     
@@ -49,6 +61,9 @@
   },
   
   "dependencies": {
+  
+    
+  "@prisma/adapter-pg": "^7.4.1",
   
     
   "@prisma/client": "^7.4.1",
@@ -63,7 +78,10 @@
   "express": "^5.2.1",
   
     
-  "jsonwebtoken": "^9.0.3"
+  "jsonwebtoken": "^9.0.3",
+  
+    
+  "pg": "^8.19.0"
   
   }
 }
