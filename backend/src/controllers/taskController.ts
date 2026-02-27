@@ -1,11 +1,14 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/db.js';
 
-// CREATE a new task
+// CREATE: Add a new study task
 export const createTask = async (req: Request, res: Response) => {
   try {
     const { title, description, startTime, endTime, priority } = req.body;
-    const userId = (req as any).user.userId; // Extracted from JWT token by middleware
+    // Ensure 'user' is correctly attached to the request by your auth middleware
+    const userId = (req as any).user?.userId; 
+
+    if (!userId) return res.status(401).json({ message: "User not authenticated" });
 
     const task = await prisma.task.create({
       data: {
@@ -14,7 +17,7 @@ export const createTask = async (req: Request, res: Response) => {
         startTime: new Date(startTime),
         endTime: new Date(endTime),
         priority: priority || 'medium',
-        userId: userId,
+        userId: userId, // This links the task to the User
       },
     });
 
@@ -24,10 +27,10 @@ export const createTask = async (req: Request, res: Response) => {
   }
 };
 
-// GET all tasks for the logged-in user
+// READ: Get all tasks for the logged-in user
 export const getTasks = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user?.userId;
 
     const tasks = await prisma.task.findMany({
       where: { userId: userId },
@@ -40,16 +43,17 @@ export const getTasks = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE a task
+// DELETE: Remove a task by its ID
 export const deleteTask = async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      await prisma.task.delete({
-        where: { id: Number(id) },
-      });
-      res.json({ message: "Task deleted successfully" });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error deleting task" });
-    }
+  try {
+    const { id } = req.params; // Expecting a string UUID
+    
+    await prisma.task.delete({
+      where: { id: Number(id) }, // Use string if ID is UUID, or Number(id) if ID is auto-increment
+    });
+    
+    res.json({ message: "Task deleted successfully" });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error deleting task", error: error.message });
+  }
 };
-
