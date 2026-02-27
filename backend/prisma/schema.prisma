@@ -4,14 +4,29 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // DO NOT add url here. Prisma 7 will throw an error if you do.
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   name      String?
+  tasks     Task[] 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  priority    String   @default("medium")
+  isCompleted Boolean  @default(false)
+
+  // Make sure this type (Int) matches the User.id type exactly!
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
 }
