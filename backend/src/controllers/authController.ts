@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/db.js'; // Note the .js for ESM!
+import { supabase } from '../lib/supbase.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
 
@@ -59,5 +60,27 @@ export const login = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    // Trigger the Supabase password reset email
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'SmartStudyScheduler://forgot-password', // Configure this for your app
+    });
+
+    if (error) throw error;
+
+    res.status(200).json({ message: "Password reset email sent!" });
+  } catch (error: any) {
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({ message: "Error sending reset email", error: error.message });
   }
 };

@@ -63,12 +63,12 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
         </View>
         
         <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={isLoading}>
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign In</Text>}
+          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log In</Text>}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => Alert.alert("Support", "Contact us to reset your password.")}>
+       <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
           <Text style={styles.forgotText}>Forgot Password?</Text>
-        </TouchableOpacity>
+       </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
