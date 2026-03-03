@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { saveToken } from '../utils/storage';
 import api from '../services/api';
+import type { AuthResponse } from '../types';
 
 import { ThemeContext, DARK, LIGHT, useTheme } from '../context/ThemeContext';
 import { useResponsive } from '../hooks/useResponsive';
@@ -55,10 +56,7 @@ const ThemedInput = ({
     <Animated.View
       style={[
         styles.inputWrap,
-        {
-          backgroundColor: C.isDark ? '#0F1219' : '#F0F2F6',
-          borderColor,
-        },
+        { backgroundColor: C.isDark ? '#0F1219' : '#F0F2F6', borderColor },
       ]}
     >
       <TextInput
@@ -89,6 +87,7 @@ const AuthScreenInner = ({ navigation }: { navigation: any }) => {
   const isWide = width >= 640;
 
   const [isLogin, setIsLogin] = useState(true);
+  const [name, setName] = useState('');               // ← new
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -106,26 +105,45 @@ const AuthScreenInner = ({ navigation }: { navigation: any }) => {
     ]).start();
   }, []);
 
+  // Clear fields when switching between login and sign up
+  const switchMode = (login: boolean) => {
+    setIsLogin(login);
+    setName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+  };
+
   const handleSubmit = async () => {
     if (!email || !password) {
       Alert.alert('Missing fields', 'Please enter your email and password.');
+      return;
+    }
+    if (!isLogin && !name.trim()) {
+      Alert.alert('Missing field', 'Please enter your full name.');
       return;
     }
     if (!isLogin && password !== confirmPassword) {
       Alert.alert('Password mismatch', 'Passwords do not match.');
       return;
     }
+
     setIsLoading(true);
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const response = await api.post<{ token: string }>(endpoint, { email, password });
+
+      // Pass name only on register
+      const payload = isLogin
+        ? { email, password }
+        : { email, password, name: name.trim() };
+
+      const response = await api.post<AuthResponse>(endpoint, payload);
       await saveToken(response.data.token);
       navigation.navigate('MainTabs');
-    } catch {
-      Alert.alert(
-        isLogin ? 'Login Failed' : 'Registration Failed',
-        'Please check your details and try again.'
-      );
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || 'Please check your details and try again.';
+      Alert.alert(isLogin ? 'Login Failed' : 'Registration Failed', message);
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +168,7 @@ const AuthScreenInner = ({ navigation }: { navigation: any }) => {
       <View style={[styles.orbBlue, !C.isDark && { backgroundColor: 'rgba(92,158,0,0.06)' }]} />
       <View style={[styles.orbGreen, !C.isDark && { backgroundColor: 'rgba(59,130,246,0.05)' }]} />
 
-      {/* Card centred in page body */}
+      {/* Card */}
       <View style={styles.pageBody}>
         <Animated.View
           style={[
@@ -188,7 +206,7 @@ const AuthScreenInner = ({ navigation }: { navigation: any }) => {
                 <TouchableOpacity
                   key={label}
                   style={[styles.tab, active && { backgroundColor: C.accent }]}
-                  onPress={() => setIsLogin(i === 0)}
+                  onPress={() => switchMode(i === 0)}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.tabText, { color: active ? accentFg : C.muted }]}>
@@ -201,6 +219,17 @@ const AuthScreenInner = ({ navigation }: { navigation: any }) => {
 
           {/* Fields */}
           <View style={styles.fields}>
+
+            {/* Name — only shown on Sign Up */}
+            {!isLogin && (
+              <ThemedInput
+                placeholder="Full name"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            )}
+
             <ThemedInput
               placeholder="Email address"
               value={email}
@@ -272,7 +301,7 @@ const AuthScreenInner = ({ navigation }: { navigation: any }) => {
             <Text style={[styles.switchText, { color: C.muted }]}>
               {isLogin ? "Don't have an account? " : 'Already have an account? '}
             </Text>
-            <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+            <TouchableOpacity onPress={() => switchMode(!isLogin)}>
               <Text style={[styles.switchLink, { color: C.accent }]}>
                 {isLogin ? 'Sign Up' : 'Log In'}
               </Text>
@@ -281,13 +310,13 @@ const AuthScreenInner = ({ navigation }: { navigation: any }) => {
         </Animated.View>
       </View>
 
-      {/* Footer at bottom of scroll */}
+      {/* Footer */}
       <Footer onNavigate={(screen) => navigation.navigate(screen)} />
     </ScrollView>
   );
 };
 
-// ── Root (owns theme state + provides Header & context) ───────────────────────
+// ── Root ──────────────────────────────────────────────────────────────────────
 const AuthScreen = ({ navigation }: { navigation: any }) => {
   const [isDark, setIsDark] = useState(false);
   const C = isDark ? DARK : LIGHT;
@@ -295,13 +324,11 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
   return (
     <ThemeContext.Provider value={C}>
       <SafeAreaView style={[styles.root, { backgroundColor: C.bg }]}>
-        {/* Fixed Header */}
         <Header
           isDark={isDark}
           onToggleTheme={() => setIsDark((d) => !d)}
           onNavigate={(screen) => navigation.navigate(screen)}
         />
-        {/* Scrollable content + Footer */}
         <AuthScreenInner navigation={navigation} />
       </SafeAreaView>
     </ThemeContext.Provider>
@@ -314,9 +341,7 @@ const styles = StyleSheet.create({
     flex: 1,
     ...(Platform.OS === 'web' ? { height: '100vh' as any } : {}),
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
+  scrollContent: { flexGrow: 1 },
   pageBody: {
     flex: 1,
     alignItems: 'center',
@@ -329,14 +354,12 @@ const styles = StyleSheet.create({
 
   // Orbs
   orbBlue: {
-    position: 'absolute',
-    top: -80, right: -120,
+    position: 'absolute', top: -80, right: -120,
     width: 360, height: 360, borderRadius: 180,
     backgroundColor: 'rgba(91,142,255,0.1)',
   },
   orbGreen: {
-    position: 'absolute',
-    bottom: -60, left: -100,
+    position: 'absolute', bottom: -60, left: -100,
     width: 280, height: 280, borderRadius: 140,
     backgroundColor: 'rgba(200,245,102,0.07)',
   },

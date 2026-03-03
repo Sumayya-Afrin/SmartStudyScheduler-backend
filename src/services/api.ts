@@ -1,26 +1,71 @@
+// services/api.ts
 import axios from 'axios';
+import { getToken } from '../utils/storage';
 
-// 1. Define types to avoid "unknown" errors
-export interface LoginResponse {
+// ── Types ─────────────────────────────────────────────────────────────────────
+export interface AuthResponse {
   token: string;
+  message: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
-const API_BASE_URL = 'http://localhost:5000/api'; // Use your actual local IP
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+// ── Axios instance ────────────────────────────────────────────────────────────
+const API_BASE_URL = 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-// 2. Export the typed login function
-export const login = async (credentials: any) => {
-  return await api.post<LoginResponse>('/login', credentials);
+// ── Auth interceptor ──────────────────────────────────────────────────────────
+// Automatically attaches the JWT token to every request so you never
+// have to pass it manually (like the old getTasks did).
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    if (!config.headers) {
+      config.headers = {};
+    }
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ── Auth endpoints ────────────────────────────────────────────────────────────
+export const login = async (credentials: LoginCredentials) => {
+  return await api.post<AuthResponse>('/auth/login', credentials);
 };
 
-// 3. Keep your existing getTasks
-export const getTasks = async (token: string) => {
-  return await api.get('/tasks', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+export const register = async (credentials: RegisterCredentials) => {
+  return await api.post<AuthResponse>('/auth/register', credentials);
+};
+
+export const forgotPassword = async (email: string) => {
+  return await api.post('/auth/forgot-password', { email });
+};
+
+export const updatePassword = async (password: string) => {
+  return await api.post('/auth/update-password', { password });
+};
+
+// ── Other endpoints ───────────────────────────────────────────────────────────
+export const getTasks = async () => {
+  // No need to pass token manually — interceptor handles it
+  return await api.get('/tasks');
 };
 
 export default api;
