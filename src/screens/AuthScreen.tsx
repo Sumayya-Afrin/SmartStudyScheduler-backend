@@ -11,40 +11,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
-  useWindowDimensions,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { saveToken } from '../utils/storage';
 import api from '../services/api';
 
-// ── Themes (mirrors LandingScreen) ───────────────────────────────────────────
-const DARK = {
-  bg: '#0B0E14',
-  surface: '#161B28',
-  border: 'rgba(255,255,255,0.07)',
-  borderFocus: 'rgba(200,245,102,0.4)',
-  accent: '#C8F566',
-  accentFg: '#0B0E14',
-  text: '#F0F2F8',
-  muted: '#6B7390',
-  inputBg: '#0F1219',
-  placeholder: '#4A5270',
-  isDark: true,
-};
-
-const LIGHT = {
-  bg: '#F7F8FA',
-  surface: '#FFFFFF',
-  border: 'rgba(0,0,0,0.08)',
-  borderFocus: 'rgba(92,158,0,0.5)',
-  accent: '#5C9E00',
-  accentFg: '#FFFFFF',
-  text: '#0F1117',
-  muted: '#6B7390',
-  inputBg: '#F0F2F6',
-  placeholder: '#9199B1',
-  isDark: false,
-};
+// ── Shared theme & hooks (same as rest of app) ────────────────────────────────
+import { ThemeContext, DARK, LIGHT, useTheme } from '../context/ThemeContext';
+import { useResponsive } from '../hooks/useResponsive';
+import { ThemeToggle } from '../components/primitives';
 
 // ── Themed Input ──────────────────────────────────────────────────────────────
 const ThemedInput = ({
@@ -55,31 +31,56 @@ const ThemedInput = ({
   keyboardType,
   autoCapitalize,
   rightElement,
-  C,
-}: any) => {
+}: {
+  placeholder: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  secureTextEntry?: boolean;
+  keyboardType?: any;
+  autoCapitalize?: any;
+  rightElement?: React.ReactNode;
+}) => {
+  const C = useTheme();
   const [focused, setFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
 
   const onFocus = () => {
     setFocused(true);
-    Animated.timing(borderAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+    Animated.timing(borderAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
   };
   const onBlur = () => {
     setFocused(false);
-    Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+    Animated.timing(borderAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
   };
+
+  const borderFocus = C.isDark
+    ? 'rgba(200,245,102,0.4)'
+    : 'rgba(92,158,0,0.5)';
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [C.border, C.borderFocus],
+    outputRange: [C.border, borderFocus],
   });
 
+  const inputBg = C.isDark ? '#0F1219' : '#F0F2F6';
+  const placeholder_color = C.isDark ? '#4A5270' : '#9199B1';
+
   return (
-    <Animated.View style={[styles.inputWrap, { backgroundColor: C.inputBg, borderColor }]}>
+    <Animated.View
+      style={[styles.inputWrap, { backgroundColor: inputBg, borderColor }]}
+    >
       <TextInput
         style={[styles.input, { color: C.text }]}
         placeholder={placeholder}
-        placeholderTextColor={C.placeholder}
+        placeholderTextColor={placeholder_color}
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
@@ -93,33 +94,13 @@ const ThemedInput = ({
   );
 };
 
-// ── Toggle ────────────────────────────────────────────────────────────────────
-const ThemeToggle = ({ isDark, onToggle, C }: { isDark: boolean; onToggle: () => void; C: typeof DARK }) => {
-  const translateX = useRef(new Animated.Value(isDark ? 22 : 0)).current;
-  useEffect(() => {
-    Animated.spring(translateX, { toValue: isDark ? 22 : 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
-  }, [isDark]);
-
-  return (
-    <TouchableOpacity
-      onPress={onToggle}
-      activeOpacity={0.85}
-      style={[styles.toggleTrack, {
-        backgroundColor: isDark ? 'rgba(200,245,102,0.1)' : 'rgba(92,158,0,0.1)',
-        borderColor: isDark ? 'rgba(200,245,102,0.2)' : 'rgba(92,158,0,0.2)',
-      }]}
-    >
-      <Text style={styles.toggleIcon}>☀️</Text>
-      <Text style={styles.toggleIcon}>🌙</Text>
-      <Animated.View style={[styles.toggleThumb, { backgroundColor: C.accent, transform: [{ translateX }] }]} />
-    </TouchableOpacity>
-  );
-};
-
-// ── Main ──────────────────────────────────────────────────────────────────────
-const AuthScreen = ({ navigation }: { navigation: any }) => {
-  const [isDark, setIsDark] = useState(false); // matches landing default
-  const C = isDark ? DARK : LIGHT;
+// ── Inner screen (consumes context) ──────────────────────────────────────────
+const AuthScreenInner = ({ navigation }: { navigation: any }) => {
+  const C = useTheme();
+  const { isWide } = (() => {
+    const { width } = useResponsive();
+    return { isWide: width >= 640 };
+  })();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -129,16 +110,21 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { width } = useWindowDimensions();
-  const isWide = width >= 640;
-
   // Fade-in on mount
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
@@ -154,11 +140,17 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
     setIsLoading(true);
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const response = await api.post<{ token: string }>(endpoint, { email, password });
+      const response = await api.post<{ token: string }>(endpoint, {
+        email,
+        password,
+      });
       await saveToken(response.data.token);
       navigation.navigate('MainTabs');
-    } catch (error) {
-      Alert.alert(isLogin ? 'Login Failed' : 'Registration Failed', 'Please check your details and try again.');
+    } catch {
+      Alert.alert(
+        isLogin ? 'Login Failed' : 'Registration Failed',
+        'Please check your details and try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -166,33 +158,54 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
 
   const eyeBtn = (show: boolean, toggle: () => void) => (
     <TouchableOpacity onPress={toggle} style={styles.eyeBtn}>
-      <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.muted} />
+      <Ionicons
+        name={show ? 'eye-off-outline' : 'eye-outline'}
+        size={20}
+        color={C.muted}
+      />
     </TouchableOpacity>
   );
 
+  const inputBg = C.isDark ? '#0F1219' : '#F0F2F6';
+  const accentFg = C.isDark ? C.bg : '#ffffff';
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: C.bg }]}
+    // Web-safe: ScrollView + min-height instead of KeyboardAvoidingView collapsing
+    <ScrollView
+      contentContainerStyle={[
+        styles.scrollContent,
+        { backgroundColor: C.bg },
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
-      {/* Orbs */}
-      <View style={[styles.orbBlue, !isDark && { backgroundColor: 'rgba(92,158,0,0.06)' }]} />
-      <View style={[styles.orbGreen, !isDark && { backgroundColor: 'rgba(59,130,246,0.05)' }]} />
+      {/* Ambient orbs */}
+      <View
+        style={[
+          styles.orbBlue,
+          !C.isDark && { backgroundColor: 'rgba(92,158,0,0.06)' },
+        ]}
+      />
+      <View
+        style={[
+          styles.orbGreen,
+          !C.isDark && { backgroundColor: 'rgba(59,130,246,0.05)' },
+        ]}
+      />
 
-      {/* Theme toggle — top right */}
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.navigate('Landing')} style={styles.backBtn}>
-          <Ionicons name="arrow-back-outline" size={20} color={C.muted} />
-          <Text style={[styles.backText, { color: C.muted }]}>Back</Text>
-        </TouchableOpacity>
-        <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} C={C} />
-      </View>
+      {/* Top bar intentionally empty — back is handled by the navigator */}
 
+      {/* Card */}
       <Animated.View
         style={[
           styles.card,
-          { backgroundColor: C.surface, borderColor: C.border, width: isWide ? 480 : '100%' },
-          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          {
+            backgroundColor: C.surface,
+            borderColor: C.border,
+            width: isWide ? 480 : '100%',
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
         ]}
       >
         {/* Logo */}
@@ -212,17 +225,30 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
         </Text>
 
         {/* Tab switcher */}
-        <View style={[styles.tabRow, { backgroundColor: C.inputBg, borderColor: C.border }]}>
+        <View
+          style={[
+            styles.tabRow,
+            { backgroundColor: inputBg, borderColor: C.border },
+          ]}
+        >
           {['Log In', 'Sign Up'].map((label, i) => {
             const active = (i === 0 && isLogin) || (i === 1 && !isLogin);
             return (
               <TouchableOpacity
                 key={label}
-                style={[styles.tab, active && { backgroundColor: C.accent }]}
+                style={[
+                  styles.tab,
+                  active && { backgroundColor: C.accent },
+                ]}
                 onPress={() => setIsLogin(i === 0)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.tabText, { color: active ? C.accentFg : C.muted }]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: active ? accentFg : C.muted },
+                  ]}
+                >
                   {label}
                 </Text>
               </TouchableOpacity>
@@ -237,15 +263,15 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
-            C={C}
           />
           <ThemedInput
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
-            C={C}
-            rightElement={eyeBtn(showPassword, () => setShowPassword(!showPassword))}
+            rightElement={eyeBtn(showPassword, () =>
+              setShowPassword(!showPassword)
+            )}
           />
           {!isLogin && (
             <ThemedInput
@@ -253,34 +279,42 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirm}
-              C={C}
-              rightElement={eyeBtn(showConfirm, () => setShowConfirm(!showConfirm))}
+              rightElement={eyeBtn(showConfirm, () =>
+                setShowConfirm(!showConfirm)
+              )}
             />
           )}
         </View>
 
         {/* Forgot password */}
         {isLogin && (
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotWrap}>
-            <Text style={[styles.forgotText, { color: C.accent }]}>Forgot password?</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ForgotPassword')}
+            style={styles.forgotWrap}
+          >
+            <Text style={[styles.forgotText, { color: C.accent }]}>
+              Forgot password?
+            </Text>
           </TouchableOpacity>
         )}
 
         {/* Submit */}
         <TouchableOpacity
-          style={[styles.submitBtn, { backgroundColor: C.accent,
-            shadowColor: C.accent,
-          }]}
+          style={[
+            styles.submitBtn,
+            { backgroundColor: C.accent, shadowColor: C.accent },
+          ]}
           onPress={handleSubmit}
           disabled={isLoading}
           activeOpacity={0.85}
         >
-          {isLoading
-            ? <ActivityIndicator color={C.accentFg} />
-            : <Text style={[styles.submitText, { color: C.accentFg }]}>
-                {isLogin ? 'Log In →' : 'Create Account →'}
-              </Text>
-          }
+          {isLoading ? (
+            <ActivityIndicator color={accentFg} />
+          ) : (
+            <Text style={[styles.submitText, { color: accentFg }]}>
+              {isLogin ? 'Log In →' : 'Create Account →'}
+            </Text>
+          )}
         </TouchableOpacity>
 
         {/* Divider */}
@@ -292,11 +326,16 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
 
         {/* Google */}
         <TouchableOpacity
-          style={[styles.googleBtn, { borderColor: C.border, backgroundColor: C.inputBg }]}
+          style={[
+            styles.googleBtn,
+            { borderColor: C.border, backgroundColor: inputBg },
+          ]}
           activeOpacity={0.8}
         >
           <Text style={styles.googleIcon}>G</Text>
-          <Text style={[styles.googleText, { color: C.text }]}>Continue with Google</Text>
+          <Text style={[styles.googleText, { color: C.text }]}>
+            Continue with Google
+          </Text>
         </TouchableOpacity>
 
         {/* Switch mode */}
@@ -311,108 +350,213 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
           </TouchableOpacity>
         </View>
       </Animated.View>
-    </KeyboardAvoidingView>
+    </ScrollView>
+  );
+};
+
+// ── Root (owns theme state, provides context) ─────────────────────────────────
+const AuthScreen = ({ navigation }: { navigation: any }) => {
+  const [isDark, setIsDark] = useState(false);
+  const C = isDark ? DARK : LIGHT;
+
+  return (
+    <ThemeContext.Provider value={C}>
+      {/* Floating theme toggle — rendered outside the card so it's always visible */}
+      <View
+        style={[
+          styles.themeToggleOverlay,
+          { backgroundColor: C.bg },
+        ]}
+      >
+        <ThemeToggle
+          isDark={isDark}
+          onToggle={() => setIsDark((d) => !d)}
+        />
+      </View>
+      <AuthScreenInner navigation={navigation} />
+    </ThemeContext.Provider>
   );
 };
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    padding: 24, overflow: 'hidden',
+  // Web-safe scroll container instead of KeyboardAvoidingView
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    minHeight: Platform.OS === 'web' ? ('100vh' as any) : undefined,
+    overflow: 'hidden',
   },
+
+  // Theme toggle pinned top-right, outside scroll
+  themeToggleOverlay: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 56 : 20,
+    right: 24,
+    zIndex: 100,
+  },
+
+  // Orbs
   orbBlue: {
-    position: 'absolute', top: -80, right: -120, width: 360, height: 360,
-    borderRadius: 180, backgroundColor: 'rgba(91,142,255,0.1)',
+    position: 'absolute',
+    top: -80,
+    right: -120,
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: 'rgba(91,142,255,0.1)',
   },
   orbGreen: {
-    position: 'absolute', bottom: -60, left: -100, width: 280, height: 280,
-    borderRadius: 140, backgroundColor: 'rgba(200,245,102,0.07)',
-  },
-  topBar: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 56 : 20, left: 24, right: 24,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    zIndex: 10,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  backText: { fontSize: 14 },
-
-  // TOGGLE
-  toggleTrack: {
-    width: 52, height: 28, borderRadius: 14, borderWidth: 1,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 4, justifyContent: 'space-between',
-    position: 'relative',
-  },
-  toggleIcon: { fontSize: 11, zIndex: 0 },
-  toggleThumb: {
-    position: 'absolute', left: 3,
-    width: 22, height: 22, borderRadius: 11, zIndex: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2, shadowRadius: 4, elevation: 3,
+    position: 'absolute',
+    bottom: -60,
+    left: -100,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(200,245,102,0.07)',
   },
 
-  // CARD
+
+
+  // Card
   card: {
-    borderWidth: 1, borderRadius: 24, padding: 36,
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 36,
     maxWidth: 480,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1, shadowRadius: 32, elevation: 8,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 32,
+    elevation: 8,
   },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 28 },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 28,
+  },
   logoDot: { width: 8, height: 8, borderRadius: 4 },
   logoText: { fontSize: 16, fontWeight: '700', fontStyle: 'italic' },
-  title: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5, marginBottom: 6 },
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
   subtitle: { fontSize: 14, lineHeight: 21, marginBottom: 28 },
 
-  // TABS
+  // Tabs
   tabRow: {
-    flexDirection: 'row', borderRadius: 12, borderWidth: 1,
-    padding: 4, marginBottom: 24,
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    marginBottom: 24,
   },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
   tabText: { fontSize: 14, fontWeight: '600' },
 
-  // FIELDS
+  // Fields
   fields: { gap: 12, marginBottom: 4 },
   inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderRadius: 14,
-    paddingHorizontal: 16, height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 52,
   },
   input: { flex: 1, fontSize: 15 },
   eyeBtn: { padding: 4 },
 
-  // FORGOT
-  forgotWrap: { alignItems: 'flex-end', marginTop: 8, marginBottom: 4 },
+  // Forgot
+  forgotWrap: {
+    alignItems: 'flex-end',
+    marginTop: 8,
+    marginBottom: 4,
+  },
   forgotText: { fontSize: 13, fontWeight: '500' },
 
-  // SUBMIT
+  // Submit
   submitBtn: {
-    borderRadius: 100, paddingVertical: 16, alignItems: 'center',
+    borderRadius: 100,
+    paddingVertical: 16,
+    alignItems: 'center',
     marginTop: 20,
-    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
   },
   submitText: { fontSize: 15, fontWeight: '700' },
 
-  // DIVIDER
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
+  // Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 20,
+  },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 12 },
 
-  // GOOGLE
+  // Google
   googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, borderWidth: 1, borderRadius: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 100,
     paddingVertical: 14,
   },
   googleIcon: { fontSize: 15, fontWeight: '800', color: '#EA4335' },
   googleText: { fontSize: 14, fontWeight: '500' },
 
-  // SWITCH
-  switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
+  // Switch
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
   switchText: { fontSize: 13 },
   switchLink: { fontSize: 13, fontWeight: '700' },
+
+  // Toggle
+  toggleTrack: {
+    width: 52,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    justifyContent: 'space-between',
+    position: 'relative',
+  },
+  toggleIcon: { fontSize: 11, zIndex: 0 },
+  toggleThumb: {
+    position: 'absolute',
+    left: 3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    zIndex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
 });
 
 export default AuthScreen;
