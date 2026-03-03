@@ -208,7 +208,7 @@ const LandingScreen = ({ navigation }: { navigation: any }) => {
                 <Text style={[styles.logoText, { color: C.text }]}>FocusFlow</Text>
               </View>
 
-              {isDesktop && (
+              {/* {isDesktop && (
                 <View style={styles.navLinks}>
                   {['Features', 'How it works', 'Pricing', 'FAQ'].map((l) => (
                     <TouchableOpacity key={l}>
@@ -216,7 +216,7 @@ const LandingScreen = ({ navigation }: { navigation: any }) => {
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
+              )} */}
 
               <View style={styles.navRight}>
                 <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
