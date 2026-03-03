@@ -11,13 +11,15 @@ import {
   ScrollView,
   Animated,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 
 import { ThemeContext, DARK, LIGHT, useTheme } from '../context/ThemeContext';
 import { useResponsive } from '../hooks/useResponsive';
-import { ThemeToggle } from '../components/primitives';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 // ── Themed Input ──────────────────────────────────────────────────────────────
 const ThemedInput = ({
@@ -36,20 +38,6 @@ const ThemedInput = ({
   const C = useTheme();
   const borderAnim = useRef(new Animated.Value(0)).current;
 
-  const onFocus = () =>
-    Animated.timing(borderAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-
-  const onBlur = () =>
-    Animated.timing(borderAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [
@@ -58,11 +46,12 @@ const ThemedInput = ({
     ],
   });
 
-  const inputBg = C.isDark ? '#0F1219' : '#F0F2F6';
-
   return (
     <Animated.View
-      style={[styles.inputWrap, { backgroundColor: inputBg, borderColor }]}
+      style={[
+        styles.inputWrap,
+        { backgroundColor: C.isDark ? '#0F1219' : '#F0F2F6', borderColor },
+      ]}
     >
       <TextInput
         style={[styles.input, { color: C.text }]}
@@ -72,8 +61,12 @@ const ThemedInput = ({
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
         autoCapitalize="none"
-        onFocus={onFocus}
-        onBlur={onBlur}
+        onFocus={() =>
+          Animated.timing(borderAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start()
+        }
+        onBlur={() =>
+          Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start()
+        }
       />
       {rightElement}
     </Animated.View>
@@ -98,16 +91,8 @@ const ResetPasswordScreenInner = ({ navigation }: { navigation: any }) => {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -136,162 +121,122 @@ const ResetPasswordScreenInner = ({ navigation }: { navigation: any }) => {
   };
 
   const accentFg = C.isDark ? C.bg : '#ffffff';
-  const inputBg = C.isDark ? '#0F1219' : '#F0F2F6';
 
   const eyeBtn = (show: boolean, toggle: () => void) => (
     <TouchableOpacity onPress={toggle} style={styles.eyeBtn}>
-      <Ionicons
-        name={show ? 'eye-off-outline' : 'eye-outline'}
-        size={20}
-        color={C.muted}
-      />
+      <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.muted} />
     </TouchableOpacity>
   );
 
+  // Password strength: 1–4
+  const strength =
+    password.length >= 12 ? 4 :
+    password.length >= 10 ? 3 :
+    password.length >= 8  ? 2 :
+    password.length >  0  ? 1 : 0;
+
+  const strengthColor =
+    strength <= 1 ? '#FF6B6B' :
+    strength === 2 ? '#FFB347' : C.accent;
+
+  const strengthLabel =
+    strength === 4 ? 'Strong' :
+    strength === 3 ? 'Good'   :
+    strength === 2 ? 'Fair'   :
+    strength === 1 ? 'Weak'   : '';
+
   return (
     <ScrollView
-      contentContainerStyle={[
-        styles.scrollContent,
-        { backgroundColor: C.bg },
-      ]}
       showsVerticalScrollIndicator={false}
+      contentContainerStyle={[styles.scrollContent, { backgroundColor: C.bg }]}
       keyboardShouldPersistTaps="handled"
     >
       {/* Ambient orbs */}
-      <View
-        style={[
-          styles.orbBlue,
-          !C.isDark && { backgroundColor: 'rgba(92,158,0,0.06)' },
-        ]}
-      />
-      <View
-        style={[
-          styles.orbGreen,
-          !C.isDark && { backgroundColor: 'rgba(59,130,246,0.05)' },
-        ]}
-      />
+      <View style={[styles.orbBlue, !C.isDark && { backgroundColor: 'rgba(92,158,0,0.06)' }]} />
+      <View style={[styles.orbGreen, !C.isDark && { backgroundColor: 'rgba(59,130,246,0.05)' }]} />
 
-      {/* Card */}
-      <Animated.View
-        style={[
-          styles.card,
-          {
-            backgroundColor: C.surface,
-            borderColor: C.border,
-            width: isWide ? 480 : '100%',
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        {/* Logo */}
-        <View style={styles.logoRow}>
-          <View style={[styles.logoDot, { backgroundColor: C.accent }]} />
-          <Text style={[styles.logoText, { color: C.text }]}>FocusFlow</Text>
-        </View>
-
-        {done ? (
-          // ── Success state ──────────────────────────────────────────
-          <View style={styles.successWrap}>
-            <View
-              style={[
-                styles.successIconWrap,
-                {
-                  backgroundColor: C.isDark
-                    ? 'rgba(200,245,102,0.08)'
-                    : 'rgba(92,158,0,0.08)',
-                  borderColor: C.isDark
-                    ? 'rgba(200,245,102,0.2)'
-                    : 'rgba(92,158,0,0.2)',
-                },
-              ]}
-            >
-              <Ionicons name="checkmark" size={32} color={C.accent} />
-            </View>
-            <Text style={[styles.title, { color: C.text, textAlign: 'center' }]}>
-              Password updated!
-            </Text>
-            <Text
-              style={[
-                styles.subtitle,
-                { color: C.muted, textAlign: 'center' },
-              ]}
-            >
-              Your password has been changed successfully. You can now log in
-              with your new password.
-            </Text>
-            <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: C.accent }]}
-              onPress={() => navigation.navigate('Auth')}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.submitText, { color: accentFg }]}>
-                Go to Log In →
+      {/* Card centred in the page body */}
+      <View style={styles.pageBody}>
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              backgroundColor: C.surface,
+              borderColor: C.border,
+              width: isWide ? 480 : '100%',
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {done ? (
+            /* ── Success state ── */
+            <View style={styles.centeredContent}>
+              <View
+                style={[
+                  styles.iconWrap,
+                  {
+                    backgroundColor: C.isDark ? 'rgba(200,245,102,0.08)' : 'rgba(92,158,0,0.08)',
+                    borderColor: C.isDark ? 'rgba(200,245,102,0.2)' : 'rgba(92,158,0,0.2)',
+                  },
+                ]}
+              >
+                <Ionicons name="checkmark" size={32} color={C.accent} />
+              </View>
+              <Text style={[styles.title, { color: C.text, textAlign: 'center' }]}>
+                Password updated!
               </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          // ── Form state ─────────────────────────────────────────────
-          <>
-            {/* Lock icon */}
-            <View
-              style={[
-                styles.iconWrap,
-                {
-                  backgroundColor: C.isDark
-                    ? 'rgba(200,245,102,0.07)'
-                    : 'rgba(92,158,0,0.08)',
-                  borderColor: C.isDark
-                    ? 'rgba(200,245,102,0.12)'
-                    : 'rgba(92,158,0,0.15)',
-                },
-              ]}
-            >
-              <Ionicons name="lock-closed-outline" size={26} color={C.accent} />
+              <Text style={[styles.subtitle, { color: C.muted, textAlign: 'center' }]}>
+                Your password has been changed successfully. You can now log in with your new password.
+              </Text>
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: C.accent }]}
+                onPress={() => navigation.navigate('Auth')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.submitText, { color: accentFg }]}>Go to Log In →</Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            /* ── Form state ── */
+            <>
+              <View
+                style={[
+                  styles.iconWrap,
+                  {
+                    backgroundColor: C.isDark ? 'rgba(200,245,102,0.07)' : 'rgba(92,158,0,0.08)',
+                    borderColor: C.isDark ? 'rgba(200,245,102,0.12)' : 'rgba(92,158,0,0.15)',
+                  },
+                ]}
+              >
+                <Ionicons name="lock-closed-outline" size={26} color={C.accent} />
+              </View>
+              <Text style={[styles.title, { color: C.text }]}>Set new password.</Text>
+              <Text style={[styles.subtitle, { color: C.muted }]}>
+                Choose a strong password with at least 8 characters.
+              </Text>
 
-            <Text style={[styles.title, { color: C.text }]}>
-              Set new password.
-            </Text>
-            <Text style={[styles.subtitle, { color: C.muted }]}>
-              Choose a strong password with at least 8 characters.
-            </Text>
+              <View style={styles.fields}>
+                <ThemedInput
+                  placeholder="New password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  rightElement={eyeBtn(showPassword, () => setShowPassword((s) => !s))}
+                />
+                <ThemedInput
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirm}
+                  rightElement={eyeBtn(showConfirm, () => setShowConfirm((s) => !s))}
+                />
+              </View>
 
-            {/* Fields */}
-            <View style={styles.fields}>
-              <ThemedInput
-                placeholder="New password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                rightElement={eyeBtn(showPassword, () =>
-                  setShowPassword((s) => !s)
-                )}
-              />
-              <ThemedInput
-                placeholder="Confirm new password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirm}
-                rightElement={eyeBtn(showConfirm, () =>
-                  setShowConfirm((s) => !s)
-                )}
-              />
-            </View>
-
-            {/* Password strength hint */}
-            {password.length > 0 && (
-              <View style={styles.strengthRow}>
-                {[1, 2, 3, 4].map((level) => {
-                  const strength =
-                    password.length >= 12
-                      ? 4
-                      : password.length >= 10
-                      ? 3
-                      : password.length >= 8
-                      ? 2
-                      : 1;
-                  return (
+              {/* Password strength */}
+              {strength > 0 && (
+                <View style={styles.strengthRow}>
+                  {[1, 2, 3, 4].map((level) => (
                     <View
                       key={level}
                       style={[
@@ -299,225 +244,153 @@ const ResetPasswordScreenInner = ({ navigation }: { navigation: any }) => {
                         {
                           backgroundColor:
                             level <= strength
-                              ? strength <= 1
-                                ? '#FF6B6B'
-                                : strength === 2
-                                ? '#FFB347'
-                                : C.accent
-                              : C.isDark
-                              ? 'rgba(255,255,255,0.07)'
-                              : 'rgba(0,0,0,0.08)',
+                              ? strengthColor
+                              : C.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)',
                         },
                       ]}
                     />
-                  );
-                })}
-                <Text style={[styles.strengthLabel, { color: C.muted }]}>
-                  {password.length >= 12
-                    ? 'Strong'
-                    : password.length >= 10
-                    ? 'Good'
-                    : password.length >= 8
-                    ? 'Fair'
-                    : 'Weak'}
-                </Text>
-              </View>
-            )}
-
-            {/* Submit */}
-            <TouchableOpacity
-              style={[
-                styles.submitBtn,
-                { backgroundColor: C.accent, shadowColor: C.accent },
-              ]}
-              onPress={handleUpdate}
-              disabled={isLoading}
-              activeOpacity={0.85}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={accentFg} />
-              ) : (
-                <Text style={[styles.submitText, { color: accentFg }]}>
-                  Update Password →
-                </Text>
+                  ))}
+                  <Text style={[styles.strengthLabel, { color: C.muted }]}>{strengthLabel}</Text>
+                </View>
               )}
-            </TouchableOpacity>
 
-            {/* Back to login */}
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Auth')}
-              style={styles.backRow}
-            >
-              <Ionicons name="arrow-back-outline" size={14} color={C.muted} />
-              <Text style={[styles.backText, { color: C.muted }]}>
-                Back to Log In
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </Animated.View>
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: C.accent, shadowColor: C.accent }]}
+                onPress={handleUpdate}
+                disabled={isLoading}
+                activeOpacity={0.85}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={accentFg} />
+                ) : (
+                  <Text style={[styles.submitText, { color: accentFg }]}>Update Password →</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => navigation.navigate('Auth')} style={styles.backRow}>
+                <Ionicons name="arrow-back-outline" size={14} color={C.muted} />
+                <Text style={[styles.backText, { color: C.muted }]}>Back to Log In</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </Animated.View>
+      </View>
+
+      {/* Footer at bottom of scroll */}
+      <Footer onNavigate={(screen) => navigation.navigate(screen)} />
     </ScrollView>
   );
 };
 
-// ── Root (owns theme state) ───────────────────────────────────────────────────
+// ── Root ──────────────────────────────────────────────────────────────────────
 const ResetPasswordScreen = ({ navigation }: { navigation: any }) => {
   const [isDark, setIsDark] = useState(false);
   const C = isDark ? DARK : LIGHT;
 
   return (
     <ThemeContext.Provider value={C}>
-      <View
-        style={[
-          styles.themeToggleOverlay,
-          { backgroundColor: 'transparent' },
-        ]}
-      >
-        <ThemeToggle isDark={isDark} onToggle={() => setIsDark((d) => !d)} />
-      </View>
-      <ResetPasswordScreenInner navigation={navigation} />
+      <SafeAreaView style={[styles.root, { backgroundColor: C.bg }]}>
+        {/* Fixed Header */}
+        <Header
+          isDark={isDark}
+          onToggleTheme={() => setIsDark((d) => !d)}
+          onNavigate={(screen) => navigation.navigate(screen)}
+        />
+        {/* Scrollable content + Footer */}
+        <ResetPasswordScreenInner navigation={navigation} />
+      </SafeAreaView>
     </ThemeContext.Provider>
   );
 };
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    ...(Platform.OS === 'web' ? { height: '100vh' as any } : {}),
+  },
   scrollContent: {
     flexGrow: 1,
+  },
+  pageBody: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    minHeight: Platform.OS === 'web' ? ('100vh' as any) : undefined,
+    paddingHorizontal: 24,
+    paddingTop: 64,
+    paddingBottom: 64,
     overflow: 'hidden',
-  },
-  themeToggleOverlay: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 20,
-    right: 24,
-    zIndex: 100,
   },
 
   // Orbs
   orbBlue: {
     position: 'absolute',
-    top: -80,
-    right: -120,
-    width: 360,
-    height: 360,
-    borderRadius: 180,
+    top: -80, right: -120,
+    width: 360, height: 360, borderRadius: 180,
     backgroundColor: 'rgba(91,142,255,0.1)',
   },
   orbGreen: {
     position: 'absolute',
-    bottom: -60,
-    left: -100,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    bottom: -60, left: -100,
+    width: 280, height: 280, borderRadius: 140,
     backgroundColor: 'rgba(200,245,102,0.07)',
   },
 
   // Card
   card: {
-    borderWidth: 1,
-    borderRadius: 24,
-    padding: 36,
-    maxWidth: 480,
-    width: '100%',
+    borderWidth: 1, borderRadius: 24, padding: 36,
+    maxWidth: 480, width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1,
-    shadowRadius: 32,
-    elevation: 8,
+    shadowOpacity: 0.1, shadowRadius: 32, elevation: 8,
   },
 
-  // Logo
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 28,
-  },
-  logoDot: { width: 8, height: 8, borderRadius: 4 },
-  logoText: { fontSize: 16, fontWeight: '700', fontStyle: 'italic' },
-
-  // Icon
+  // Icon badge
   iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    width: 56, height: 56, borderRadius: 16, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
 
   // Text
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    marginBottom: 6,
-  },
+  title: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5, marginBottom: 6 },
   subtitle: { fontSize: 14, lineHeight: 21, marginBottom: 28 },
 
   // Fields
   fields: { gap: 12, marginBottom: 12 },
   inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 52,
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderRadius: 14,
+    paddingHorizontal: 16, height: 52,
   },
   input: { flex: 1, fontSize: 15 },
   eyeBtn: { padding: 4 },
 
   // Strength
   strengthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 20,
+    flexDirection: 'row', alignItems: 'center',
+    gap: 6, marginBottom: 20,
   },
   strengthBar: { flex: 1, height: 3, borderRadius: 2 },
   strengthLabel: { fontSize: 11, marginLeft: 4 },
 
   // Submit
   submitBtn: {
-    borderRadius: 100,
-    paddingVertical: 16,
-    alignItems: 'center',
+    borderRadius: 100, paddingVertical: 16, alignItems: 'center',
     marginTop: 8,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: 0.25, shadowRadius: 16, elevation: 6,
   },
   submitText: { fontSize: 15, fontWeight: '700' },
 
   // Back link
   backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 20,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 6, marginTop: 20,
   },
   backText: { fontSize: 13 },
 
   // Success
-  successWrap: { alignItems: 'center', paddingVertical: 8 },
-  successIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
+  centeredContent: { alignItems: 'center' },
 });
 
 export default ResetPasswordScreen;

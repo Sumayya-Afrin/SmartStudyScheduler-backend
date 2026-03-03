@@ -85,7 +85,7 @@ const AppNavigator = () => {
       <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
       <RootStack.Screen name="Landing" component={LandingScreen} />
       <RootStack.Screen name="Auth" component={AuthScreen} />
-      <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen}  />
       <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </RootStack.Navigator>
   );
