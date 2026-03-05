@@ -7,22 +7,37 @@ import { supabase } from '../lib/supbase.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret';
 
+// ── Validation helpers ────────────────────────────────────────────────────────
+const isValidEmail = (email: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+const isValidPassword = (password: string) => password.length >= 8;
+
 // ── Register ──────────────────────────────────────────────────────────────────
 export const register = async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
 
+  // Validate all fields before touching the DB
   if (!email || !password) {
     return res.status(400).json({ message: 'Email and password are required.' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ message: 'Please provide a valid email address.' });
+  }
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+  }
+  if (name && name.trim().length < 2) {
+    return res.status(400).json({ message: 'Name must be at least 2 characters.' });
   }
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
-      data: { email, password: hashedPassword, name },
+      data: { email: email.trim().toLowerCase(), password: hashedPassword, name: name?.trim() },
     });
 
-    // ✅ Return a token just like login does — frontend expects { token }
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
@@ -36,7 +51,6 @@ export const register = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Register error:', error);
-    // Prisma unique constraint error code
     if (error.code === 'P2002') {
       return res.status(400).json({ message: 'An account with this email already exists.' });
     }
@@ -51,17 +65,18 @@ export const login = async (req: Request, res: Response) => {
   if (!email || !password) {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ message: 'Please provide a valid email address.' });
+  }
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
 
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
+    // Same message for "user not found" and "wrong password" — avoids
+    // leaking whether an email is registered or not (security best practice)
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
@@ -89,9 +104,12 @@ export const forgotPassword = async (req: Request, res: Response) => {
   if (!email) {
     return res.status(400).json({ message: 'Email is required.' });
   }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ message: 'Please provide a valid email address.' });
+  }
 
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo: 'SmartStudyScheduler://reset-password',
     });
 
@@ -107,13 +125,14 @@ export const forgotPassword = async (req: Request, res: Response) => {
 // ── Update Password ───────────────────────────────────────────────────────────
 export const updatePassword = async (req: Request, res: Response) => {
   const { password } = req.body;
-  // JWT middleware should attach userId to req — adjust to match your middleware
   const userId = (req as any).user?.userId;
 
   if (!password) {
     return res.status(400).json({ message: 'New password is required.' });
   }
-
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+  }
   if (!userId) {
     return res.status(401).json({ message: 'Unauthorized.' });
   }
