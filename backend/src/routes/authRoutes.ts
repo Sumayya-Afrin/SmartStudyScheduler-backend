@@ -4,6 +4,7 @@ import {
   login,
   forgotPassword,
   updatePassword,
+  logout,
 } from "../controllers/authController.js";
 import authenticateToken from "../middleware/authMiddleware.js";
 import { getGoogleUrl, googleCallback } from "../controllers/googleAuthController.js";
@@ -15,6 +16,7 @@ router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/auth/update-password", authenticateToken, updatePassword);
 router.get('/google/url',         getGoogleUrl);     
-router.post('/google/callback',   googleCallback);    
+router.post('/google/callback',   googleCallback);  
+router.post('/logout', authenticateToken, logout);  
 
 export default router;

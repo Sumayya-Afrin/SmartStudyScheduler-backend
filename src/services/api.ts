@@ -36,10 +36,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
-    if (!config.headers) {
-      config.headers = {};
-    }
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.set('Authorization', `Bearer ${token}`);
   }
   return config;
 });
@@ -65,6 +62,17 @@ export const updatePassword = async (password: string) => {
 export const getTasks = async () => {
   // No need to pass token manually — interceptor handles it
   return await api.get('/tasks');
+};
+
+
+export const handleLogout = async () => {
+  const token = getToken();
+  await fetch('/api/auth/logout', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  localStorage.removeItem('token'); // or wherever you store it
+  // redirect to login
 };
 
 export default api;
