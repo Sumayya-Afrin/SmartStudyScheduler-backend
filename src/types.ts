@@ -1,4 +1,4 @@
-export type AuthResponse {
+export type AuthResponse = {
   token: string;
   user?: {
     id: string;

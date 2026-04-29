@@ -32,8 +32,7 @@ const api = axios.create({
 });
 
 // ── Auth interceptor ──────────────────────────────────────────────────────────
-// Automatically attaches the JWT token to every request so you never
-// have to pass it manually (like the old getTasks did).
+
 api.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
